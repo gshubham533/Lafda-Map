@@ -12,7 +12,7 @@ Shubham Gupta
 Date
 March 2026
 Stack
-Next.js · Supabase · Mapbox GL · WebRTC
+Next.js · Supabase · MapLibre GL · WebRTC
 Target Launch
 6 weeks from kickoff
 
@@ -99,8 +99,8 @@ UI Components
 shadcn/ui + Tailwind CSS
 Minimal, accessible, composable
 Map
-Mapbox GL JS (react-map-gl)
-Custom dark tile style, fast clustering
+MapLibre GL JS (react-map-gl) + OpenFreeMap tiles
+Dark vector style, no API key; clustering in-app
 Database
 Supabase (PostgreSQL)
 Realtime, auth, storage — all-in-one
@@ -189,7 +189,7 @@ Limitation: P2P works well for 1-10 concurrent viewers. Scale beyond that requir
 4. Feature Requirements
 4.1 Core Features — MVP
 F1: Incident Map
-	•	Dark-themed Mapbox map as the primary screen
+	•	Dark-themed MapLibre map as the primary screen
 	•	Show all active incidents as category-specific pins
 	•	Live incidents show a pulsing ring animation around the pin
 	•	Filter chips at top: All | Street Fight | Road Rage | JCB Khudai | Chaos
@@ -265,7 +265,7 @@ Milestone
 Deliverables
 Week 1
 Project Setup
-Next.js + Supabase init, Mapbox integration, DB schema deployed, anon auth working
+Next.js + Supabase init, MapLibre + OpenFreeMap, DB schema deployed, anon auth working
 Week 2
 Map + Pins
 Incident pins rendering from DB, category filters, user location dot, dark map theme
@@ -303,7 +303,7 @@ Supabase Realtime latency under load
 Low
 Medium
 Enable Supabase Realtime connection pooling; add loading states
-Mapbox free tier limit exceeded
+Third-party map tile CDN limits (mitigate: self-host Protomaps / own style)
 Low
 Low
 Monitor usage; switch to self-hosted tiles or Protomaps if needed
@@ -330,11 +330,11 @@ DB, Auth, Realtime client
 latest
 Session management in Next.js middleware
 react-map-gl
-7.x
-React wrapper for Mapbox GL JS
-mapbox-gl
-3.x
-Map rendering engine
+8.x
+React wrapper for MapLibre GL JS
+maplibre-gl
+5.x
+Map rendering engine (MapLibre fork)
 simple-peer
 9.x
 WebRTC abstraction for P2P streaming
@@ -349,8 +349,8 @@ NEXT_PUBLIC_SUPABASE_URL
 Supabase project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 Supabase anon/public key
-NEXT_PUBLIC_MAPBOX_TOKEN
-Mapbox GL access token
+NEXT_PUBLIC_MAP_STYLE_URL
+Optional MapLibre style URL (default: OpenFreeMap dark)
 
 
 LafdaMap PRD v1.0  ·  Confidential  ·  March 2026

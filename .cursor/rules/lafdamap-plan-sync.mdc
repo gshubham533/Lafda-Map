@@ -1,0 +1,29 @@
+---
+description: Keep PLAN.txt updated as LafdaMap MVP phases progress
+alwaysApply: true
+---
+
+# LafdaMap — sync `PLAN.txt`
+
+Whenever you **complete meaningful work** on this repo (finish a phase, merge a feature, add a migration, or change stack/env docs), **update [PLAN.txt](PLAN.txt)** in the same session.
+
+## When to update
+
+- After implementing or finishing a **phase** (3–6) or a major slice (e.g. report UI, live streaming).
+- After adding/changing **Supabase migrations** or **RLS** (note file path in section 7).
+- After changing **map/auth/env** stack (keep section 2 and section 7 accurate).
+
+## What to change in `PLAN.txt`
+
+1. **Last updated** (top): set to today’s date (UTC or local, be consistent).
+2. **Section 3 — Phase overview**: set phase lines to `[DONE]` or `[TODO]` to match reality.
+3. **Section 4 — Completed**: add `[x]` items for work just shipped; keep chronological or grouped by phase.
+4. **Section 5 — Remaining**: turn finished items into `[x]` and move them to section 4, **or** delete the line from section 5 if duplicated in section 4 (avoid duplicate bullets).
+5. **Section 7 — Key files**: add/remove paths for new important modules.
+6. Do **not** replace `prd.txt`; `PLAN.txt` is the **progress ledger** only.
+
+## Style
+
+- Use the existing `[x]` / `[TODO]` / `[DONE]` conventions.
+- Keep sections 1–2 short unless scope or stack actually changed.
+- If work is partial, update section 5 with clearer sub-bullets instead of marking the whole phase done.

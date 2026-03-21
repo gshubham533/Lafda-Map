@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LafdaMap
 
-## Getting Started
+Real-time incident mapping (MVP). Next.js 14, Supabase (anonymous auth + Realtime), **MapLibre** + [OpenFreeMap](https://openfreemap.org/) tiles (free, no API key).
 
-First, run the development server:
+### Database (Phase 2)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Run the SQL migration once in the Supabase **SQL Editor** (or via Supabase CLI):
+
+- File: [`supabase/migrations/20250322120000_incidents.sql`](supabase/migrations/20250322120000_incidents.sql)
+
+This creates `public.incidents`, RLS policies, and adds the table to `supabase_realtime`. If Realtime does not stream, open **Database → Replication** and ensure `incidents` is enabled.
+
+To test pins, insert from the **SQL Editor** (runs with privileges that bypass RLS), reusing a real `auth.users` id:
+
+```sql
+insert into public.incidents (user_id, type, title, lat, lng)
+select id, 'chaos', 'Test pin', 18.5204, 73.8567
+from auth.users
+limit 1;
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Or use **Table Editor** as a project admin (service role), with a valid `user_id` and `type` in `street_fight` | `road_rage` | `jcb` | `chaos`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Copy environment variables:
 
-## Learn More
+   ```bash
+   cp .env.example .env.local
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. Fill in [`.env.local`](.env.example):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   - **Supabase**: project URL and anon key. In the Supabase dashboard, enable **Authentication → Providers → Anonymous sign-ins** so `signInAnonymously()` works.
+   - **Map** (optional): `NEXT_PUBLIC_MAP_STYLE_URL` to use another MapLibre style; default is OpenFreeMap dark.
+   - **Map center** (optional): `NEXT_PUBLIC_MAP_DEFAULT_CENTER` as `lat,lng,zoom` (default is Pune).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. Install and run:
 
-## Deploy on Vercel
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   Open [http://localhost:3000](http://localhost:3000).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scripts
+
+- `npm run dev` — development server
+- `npm run build` — production build
+- `npm run start` — run production build locally
+- `npm run lint` — ESLint

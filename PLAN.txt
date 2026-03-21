@@ -1,0 +1,159 @@
+================================================================================
+LAFDAMAP — MVP BUILD PLAN & PROGRESS LOG
+================================================================================
+Last updated: 2026-03-22 (UTC) — Phase 3 shipped
+Source PRD: prd.txt (Product Requirements Document v1.0 MVP)
+
+This file is the single project progress ledger. Cursor agents must keep it in
+sync when phases ship (see .cursor/rules/lafdamap-plan-sync.mdc).
+
+--------------------------------------------------------------------------------
+1. PRODUCT SUMMARY
+--------------------------------------------------------------------------------
+LafdaMap: real-time, community-driven incident map (urban India, viral /
+hyper-local). Users browse incidents on a map, report anonymously, and (later)
+go live / watch streams per incident.
+
+Locked scope decisions:
+  - Geography: single-city MVP; default map center via env (e.g. Pune).
+  - Incidents: no auto-expiry; moderation via Supabase Studio for now.
+
+Out of scope for MVP (per PRD): named accounts, push notifications, upvotes,
+SFU streaming, incident expiry automation, native apps.
+
+--------------------------------------------------------------------------------
+2. TECH STACK (AS IMPLEMENTED)
+--------------------------------------------------------------------------------
+  - Frontend: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS
+  - UI: shadcn-style components (Button, tokens in app/globals.css)
+  - Map: MapLibre GL via react-map-gl/maplibre + OpenFreeMap tiles (no API key)
+  - Backend: Supabase (Postgres, Auth, Realtime)
+  - Auth: Supabase anonymous sign-in (signInAnonymously), @supabase/ssr
+  - Live streaming (Phase 5): WebRTC via simple-peer + Supabase signaling
+
+Environment variables (see .env.example):
+  - NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+  - NEXT_PUBLIC_MAP_STYLE_URL (optional; default OpenFreeMap dark)
+  - NEXT_PUBLIC_MAP_DEFAULT_CENTER (lat,lng,zoom)
+
+--------------------------------------------------------------------------------
+3. PHASE OVERVIEW (STATUS)
+--------------------------------------------------------------------------------
+  Phase 1 — Foundation          [DONE]
+  Phase 2 — Map + data          [DONE]
+  Phase 3 — Report incident     [DONE]
+  Phase 4 — Detail + share      [TODO]
+  Phase 5 — Live WebRTC + chat  [TODO]
+  Phase 6 — Ship (PWA, Vercel)  [TODO]
+
+Dependency order: 1 → 2 → 3 → 4 → 5 → 6
+
+--------------------------------------------------------------------------------
+4. DETAILED TODO LIST — COMPLETED
+--------------------------------------------------------------------------------
+
+PHASE 1 — Foundation [DONE]
+  [x] Scaffold Next.js 14 + TypeScript + Tailwind + ESLint
+  [x] shadcn-style UI baseline (components/ui/button, lib/utils, globals theme)
+  [x] Supabase browser client (lib/supabase/client.ts) + server helper
+      (lib/supabase/server.ts)
+  [x] AuthProvider: silent signInAnonymously when Supabase env is set
+  [x] Map: MapLibre + OpenFreeMap (lib/map-style.ts, lib/map-config.ts)
+  [x] Dynamic map load on home page (ssr: false)
+  [x] .env.example + README setup notes
+  [x] next.config transpilePackages for maplibre-gl
+
+PHASE 2 — Map + data [DONE]
+  [x] SQL migration: public.incidents + constraints + indexes
+      File: supabase/migrations/20250322120000_incidents.sql
+  [x] RLS: SELECT for anon + authenticated; INSERT/UPDATE/DELETE own rows
+  [x] Realtime: incidents in supabase_realtime publication; replica identity full
+  [x] Types + parsing: lib/incidents.ts (types, colors, parseIncidentRow)
+  [x] Hook: hooks/use-incidents-realtime.ts (initial fetch + postgres_changes)
+  [x] UI: components/map/lafda-map.tsx (map shell, navigation control)
+  [x] Filter chips: All | Street Fight | Road Rage | JCB Khudai | Chaos
+  [x] Incident markers with PRD colors; pulse when is_live
+  [x] User GPS dot + flyTo when geolocation succeeds
+  [x] README: migration + test insert SQL
+  [x] Plan marker: Phase 2 completed in Cursor plan file
+
+PHASE 3 — Report incident [DONE]
+  [x] Floating primary “Report incident” control (center-bottom FAB)
+  [x] Bottom sheet: Step 1 — 2×2 category grid (emoji cards, PRD colors)
+  [x] Step 2 — title (max 80), optional description (max 300)
+  [x] Location on submit via navigator.geolocation; fallback map center → default city
+  [x] Brief success copy when fallback location used; insert user_id = session user (RLS)
+  [x] New pins via existing Realtime subscription (no hook change)
+
+--------------------------------------------------------------------------------
+5. DETAILED TODO LIST — REMAINING
+--------------------------------------------------------------------------------
+
+PHASE 4 — Detail + share [TODO]
+  [ ] Tap marker opens bottom sheet (detail card)
+  [ ] Show: category badge, title, description, relative time, reporter handle
+  [ ] Reporter handle: anonymous_XXXX (user_metadata or profiles table)
+  [ ] CTAs: “Watch live” / “Go live here” (wire in Phase 5)
+  [ ] Share button + deep link route app/incident/[id]/page.tsx
+  [ ] Optional: minimal Open Graph metadata for shared links
+
+PHASE 5 — Live streaming [TODO]
+  [ ] DB: live_sessions (+ chat storage or Realtime broadcast channel)
+  [ ] RLS + policies for host vs viewers; viewer_count (Edge Function or RPC)
+  [ ] Signaling: Supabase Realtime channels for SDP/ICE (multi-viewer safe)
+  [ ] simple-peer: host and viewer flows; STUN; document TURN post-MVP
+  [ ] In-stream HUD: LIVE badge, viewer count, category
+  [ ] Live chat tied to stream/session
+  [ ] End stream: is_active false, is_live false on incident, stop pulse
+
+PHASE 6 — Ship [TODO]
+  [ ] PWA: manifest, icons, basic installability
+  [ ] Responsive pass (mobile-first)
+  [ ] Vercel deploy; env vars documented
+  [ ] Smoke test checklist (browse, report, share, live happy path)
+  [ ] Final PLAN.txt / README alignment
+
+--------------------------------------------------------------------------------
+6. PRD FEATURE MAPPING (F1–F5)
+--------------------------------------------------------------------------------
+  F1 Incident map      — Phases 1–2 (live pulse already for is_live)
+  F2 Detail card       — Phase 4 (+ live CTAs Phase 5)
+  F3 Report flow       — Phase 3
+  F4 Live streaming    — Phase 5
+  F5 Guest auth        — Phase 1 (ongoing)
+
+--------------------------------------------------------------------------------
+7. KEY FILES (REFERENCE)
+--------------------------------------------------------------------------------
+  prd.txt
+  PLAN.txt                          (this file)
+  .env.example
+  README.md
+  app/page.tsx
+  app/layout.tsx
+  app/globals.css
+  components/providers/auth-provider.tsx
+  components/map/lafda-map.tsx
+  components/map/report-incident-sheet.tsx
+  components/map/filter-chips.tsx
+  components/map/incident-marker.tsx
+  hooks/use-incidents-realtime.ts
+  lib/incidents.ts
+  lib/map-config.ts
+  lib/map-style.ts
+  lib/supabase/client.ts
+  lib/supabase/server.ts
+  supabase/migrations/20250322120000_incidents.sql
+  .cursor/rules/lafdamap-plan-sync.mdc
+
+--------------------------------------------------------------------------------
+8. NOTES FOR AGENTS
+--------------------------------------------------------------------------------
+  - After shipping a phase: mark section 3 status, flip [ ] to [x] in section 5,
+    add bullets under section 4 if you split tasks, bump “Last updated” date.
+  - When adding migrations, list new files in section 7.
+  - Stack doc in section 2 should reflect reality (e.g. MapLibre vs Mapbox).
+
+================================================================================
+END OF PLAN
+================================================================================
