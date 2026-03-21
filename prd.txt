@@ -1,0 +1,356 @@
+LAFDAMAP
+Product Requirements Document
+Real-Time Incident Mapping Platform  —  v1.0 MVP
+Field
+Detail
+Version
+1.0 — MVP
+Status
+Draft
+Author
+Shubham Gupta
+Date
+March 2026
+Stack
+Next.js · Supabase · Mapbox GL · WebRTC
+Target Launch
+6 weeks from kickoff
+
+
+1. Product Overview
+1.1 Vision
+LafdaMap is a real-time, community-driven incident mapping platform — think Google Maps but for street-level chaos. Users can browse, report, and go live on incidents happening near them, across categories like street fights, road rage, JCB excavations, and general chaos. The product is built for fun, virality, and hyper-local engagement, primarily targeting urban India.
+1.2 Problem Statement
+There is no lightweight, real-time way to see what is actually happening on the streets around you. Social media is noisy and non-spatial. Police helplines are reactive. WhatsApp groups are fragmented. LafdaMap fills this gap with an anonymous, map-first, real-time platform for citizen reporting and witnessing.
+1.3 Target Users
+User Type
+Behavior
+Primary Need
+Casual Browser
+Opens app to see what is happening nearby
+Browse incidents on map
+Active Reporter
+Spots something and posts it
+Quick 2-step report flow
+Live Streamer
+Wants to broadcast an incident in real time
+Tap to go live from incident pin
+Viewer
+Joins someone else's live stream
+Watch + react in chat
+
+1.4 Incident Categories
+Icon
+Category
+Description
+Map Pin Color
+🥊
+Street Fight
+Physical altercations, brawls, colony disputes
+Red (#FF3B3B)
+🚗
+Road Rage
+Accidents, traffic disputes, vehicle altercations
+Orange (#FF8C00)
+🚜
+JCB Khudai
+Excavation, road-digging, construction spectacles
+Yellow (#FFD700)
+🔥
+Chaos / Other
+Any other noteworthy public incident
+Pink (#FF4D88)
+
+2. Goals & Success Metrics
+2.1 MVP Goals
+	•	Ship a working incident map with real-time data within 6 weeks
+	•	Enable anonymous guest-based reporting with GPS-detected location
+	•	Enable peer-to-peer live streaming via WebRTC from any incident pin
+	•	Build a shareable, viral loop — every incident has a share URL
+2.2 Key Metrics (30 days post-launch)
+Metric
+Target
+Measurement
+Total incidents reported
+500+
+Supabase incidents table count
+Daily Active Users
+200+
+Supabase auth daily active
+Live sessions initiated
+50+
+live_sessions table count
+Average session duration
+>3 minutes
+Client-side analytics
+Incident-to-share rate
+>15%
+Share button click events
+
+3. Technical Architecture
+3.1 Tech Stack
+Layer
+Technology
+Rationale
+Frontend
+Next.js 14 (App Router)
+SSR, file-based routing, React 18
+UI Components
+shadcn/ui + Tailwind CSS
+Minimal, accessible, composable
+Map
+Mapbox GL JS (react-map-gl)
+Custom dark tile style, fast clustering
+Database
+Supabase (PostgreSQL)
+Realtime, auth, storage — all-in-one
+Auth
+Supabase Anonymous Auth
+signInAnonymously() — zero friction
+Live Streaming
+WebRTC via simple-peer
+P2P, no media server needed for MVP
+Realtime Pins
+Supabase Realtime (postgres_changes)
+New incidents appear on all maps instantly
+Deployment
+Vercel
+Zero config, Next.js native, fast CDN
+
+3.2 Database Schema
+incidents
+Column
+Type
+Notes
+id
+uuid (PK)
+gen_random_uuid()
+user_id
+uuid (FK)
+references auth.users — nullable for guests
+type
+text (enum)
+'street_fight' | 'road_rage' | 'jcb' | 'chaos'
+title
+text
+Short user-entered title, max 80 chars
+description
+text
+Optional detail, max 300 chars
+lat
+float8
+GPS latitude
+lng
+float8
+GPS longitude
+is_live
+boolean
+Default false; set true when host starts WebRTC
+created_at
+timestamptz
+Default now()
+
+live_sessions
+Column
+Type
+Notes
+id
+uuid (PK)
+gen_random_uuid()
+incident_id
+uuid (FK)
+references incidents(id)
+host_user_id
+uuid (FK)
+references auth.users
+sdp_offer
+text
+WebRTC SDP offer from host (signaling)
+is_active
+boolean
+Default true; set false on host disconnect
+viewer_count
+int4
+Incremented/decremented via edge function
+created_at
+timestamptz
+Default now()
+
+3.3 WebRTC Signaling Flow
+LafdaMap uses Supabase as a lightweight WebRTC signaling server. No media server (TURN/SFU) is required for MVP since streams are peer-to-peer.
+	•	Host taps 'Go Live' on an incident pin
+	•	simple-peer creates an SDP offer and stores it in live_sessions via Supabase
+	•	Viewers subscribe to the live_sessions row via Supabase Realtime
+	•	Viewer's browser creates an SDP answer and sends it back to host
+	•	ICE candidates are exchanged via a separate signaling channel (Supabase channel)
+	•	P2P stream established — video + audio direct between peers
+Limitation: P2P works well for 1-10 concurrent viewers. Scale beyond that requires a media relay (e.g. Cloudflare Calls or Mux) — post-MVP roadmap item.
+
+4. Feature Requirements
+4.1 Core Features — MVP
+F1: Incident Map
+	•	Dark-themed Mapbox map as the primary screen
+	•	Show all active incidents as category-specific pins
+	•	Live incidents show a pulsing ring animation around the pin
+	•	Filter chips at top: All | Street Fight | Road Rage | JCB Khudai | Chaos
+	•	User's current location shown as a distinct blue dot
+	•	Tapping a pin opens the Incident Detail Card
+
+F2: Incident Detail Card
+	•	Slides up from bottom on pin tap
+	•	Shows: category badge, title, description, time ago, reporter handle
+	•	If live: shows viewer count and 'Watch Live' CTA
+	•	If not live: shows 'Go Live Here' CTA
+	•	Share button generates a deep link URL for the incident
+
+F3: Report Incident (2-step flow)
+	•	Step 1 — Category: 2x2 grid with emoji cards, tap to select
+	•	Step 2 — Details: title input + GPS auto-detect location button
+	•	Guest users can report without signing up
+	•	On submit: incident inserted into Supabase and pin appears on all maps in real time
+
+F4: Live Streaming (WebRTC)
+	•	Host flow: tap 'Go Live' on any incident pin to start broadcasting
+	•	Viewer flow: tap 'Watch Live' on a live incident pin
+	•	In-stream HUD: LIVE badge, viewer count, category label
+	•	Live chat: real-time text chat attached to the stream (Supabase Realtime channel)
+	•	Host can end stream; is_active set to false, pin stops pulsing
+
+F5: Guest Authentication
+	•	On first open: supabase.auth.signInAnonymously() — no form, no email
+	•	Guest session persisted in localStorage via Supabase client
+	•	Reporter handle auto-generated: 'anonymous_[4-char-id]'
+	•	No profile, no settings, no login screen — completely frictionless
+
+4.2 Out of Scope — MVP
+Feature
+Reason Deferred
+Named user accounts / profiles
+Adds friction; anonymous is the MVP bet
+Push notifications
+Requires native app or service worker complexity
+Incident upvoting / reactions
+Post-launch engagement feature
+Multi-viewer SFU streaming
+P2P sufficient for MVP scale
+Incident expiry / moderation
+Manual moderation post-launch
+Mobile app (iOS/Android)
+PWA first; native app after validation
+
+5. User Experience Flows
+5.1 Browse Flow
+	•	User opens LafdaMap URL
+	•	Anonymous session silently created in background
+	•	Map loads, centered on user GPS location
+	•	Nearby incident pins rendered from Supabase query
+	•	User taps pin, sees detail card, can share or watch live
+5.2 Report Flow
+	•	User taps 'Report Incident' button
+	•	Bottom sheet slides up — Step 1: select category
+	•	Step 2: enter title + tap 'Detect Location'
+	•	GPS coordinates captured via navigator.geolocation
+	•	On confirm: POST to Supabase, pin appears on map in real time for all viewers
+5.3 Go Live Flow
+	•	User taps pin of an existing incident (or reports new one)
+	•	Taps 'Go Live Here' in detail card
+	•	Browser requests camera + mic permissions
+	•	simple-peer creates offer, stored in live_sessions
+	•	Live screen shown with LIVE badge, viewer counter, and chat
+	•	Other users see pulsing pin and 'Watch Live' option
+
+6. Development Milestones
+Week
+Milestone
+Deliverables
+Week 1
+Project Setup
+Next.js + Supabase init, Mapbox integration, DB schema deployed, anon auth working
+Week 2
+Map + Pins
+Incident pins rendering from DB, category filters, user location dot, dark map theme
+Week 3
+Report Flow
+2-step report modal, GPS detection, Supabase insert, real-time pin appearance
+Week 4
+Live Streaming
+WebRTC signaling via Supabase, host/viewer flows, live chat, pin pulse animation
+Week 5
+Polish + PWA
+shadcn/ui cleanup, mobile responsiveness, share links, PWA manifest
+Week 6
+Launch
+Vercel deployment, smoke testing, soft launch to friends/WhatsApp
+
+7. Risks & Mitigations
+Risk
+Likelihood
+Impact
+Mitigation
+WebRTC NAT traversal fails in some networks
+High
+High
+Add STUN servers config; document TURN fallback for post-MVP
+GPS permission denied by user
+Medium
+Medium
+Fall back to manual pin drop on map
+Abusive / illegal content posted
+Medium
+High
+Add report flag button; manual review queue; T&C on open
+Supabase Realtime latency under load
+Low
+Medium
+Enable Supabase Realtime connection pooling; add loading states
+Mapbox free tier limit exceeded
+Low
+Low
+Monitor usage; switch to self-hosted tiles or Protomaps if needed
+
+8. Open Questions
+	•	Should incidents auto-expire after X hours, or stay on the map indefinitely for MVP?
+	•	What is the geographic scope at launch — single city (Pune/Delhi), or nationwide?
+	•	Do we want a simple admin dashboard to delete flagged incidents, or handle via Supabase Studio?
+	•	Should the live stream be capped at N viewers for MVP to avoid P2P overload?
+	•	Is there a monetization angle post-MVP (promoted incidents, local brand pins)?
+
+9. Appendix
+9.1 Key npm Packages
+Package
+Version
+Purpose
+next
+14.x
+React framework, App Router, SSR
+@supabase/supabase-js
+2.x
+DB, Auth, Realtime client
+@supabase/auth-helpers-nextjs
+latest
+Session management in Next.js middleware
+react-map-gl
+7.x
+React wrapper for Mapbox GL JS
+mapbox-gl
+3.x
+Map rendering engine
+simple-peer
+9.x
+WebRTC abstraction for P2P streaming
+shadcn/ui
+latest
+Accessible, composable UI primitives
+
+9.2 Environment Variables
+Variable
+Description
+NEXT_PUBLIC_SUPABASE_URL
+Supabase project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+Supabase anon/public key
+NEXT_PUBLIC_MAPBOX_TOKEN
+Mapbox GL access token
+
+
+LafdaMap PRD v1.0  ·  Confidential  ·  March 2026
