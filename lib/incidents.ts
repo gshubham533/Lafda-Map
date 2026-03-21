@@ -48,6 +48,24 @@ export const REPORT_CATEGORIES: {
   { type: "chaos", label: "Chaos / Other", emoji: "🔥" },
 ];
 
+const CATEGORY_LABELS: Record<IncidentType, string> = {
+  street_fight: "Street Fight",
+  road_rage: "Road Rage",
+  jcb: "JCB Khudai",
+  chaos: "Chaos",
+};
+
+export function categoryLabel(type: IncidentType): string {
+  return CATEGORY_LABELS[type];
+}
+
+/** PRD: reporter handle `anonymous_[4-char-id]` — deterministic from auth user id. */
+export function anonymousReporterHandle(userId: string | null): string {
+  if (!userId) return "anonymous_????";
+  const compact = userId.replace(/-/g, "").toLowerCase();
+  return `anonymous_${compact.slice(-4)}`;
+}
+
 export function isIncidentType(v: string): v is IncidentType {
   return (
     v === "street_fight" ||

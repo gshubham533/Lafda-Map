@@ -8,16 +8,20 @@ import Map, {
 } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Plus } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FilterChips } from "@/components/map/filter-chips";
+import { IncidentDetailSheet } from "@/components/map/incident-detail-sheet";
 import { IncidentMarker } from "@/components/map/incident-marker";
 import { ReportIncidentSheet } from "@/components/map/report-incident-sheet";
 import { Button } from "@/components/ui/button";
 import { useIncidentsRealtime } from "@/hooks/use-incidents-realtime";
 import { getDefaultMapView } from "@/lib/map-config";
 import { getMapStyleUrl } from "@/lib/map-style";
-import type { IncidentFilter } from "@/lib/incidents";
+import type { IncidentFilter, IncidentRow } from "@/lib/incidents";
 
 export default function LafdaMap() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const view = useMemo(() => getDefaultMapView(), []);
   const mapStyle = useMemo(() => getMapStyleUrl(), []);
   const { incidents, loading, error } = useIncidentsRealtime();
@@ -65,6 +69,53 @@ export default function LafdaMap() {
     return incidents.filter((i) => i.type === filter);
   }, [incidents, filter]);
 
+  const incidentId = searchParams.get("incident");
+  const selectedIncident = useMemo(() => {
+    if (!incidentId) return null;
+    return incidents.find((i) => i.id === incidentId) ?? null;
+  }, [incidents, incidentId]);
+
+  const focusLng = selectedIncident?.lng;
+  const focusLat = selectedIncident?.lat;
+  const focusId = selectedIncident?.id;
+
+  const unknownIncidentParam =
+    Boolean(incidentId) &&
+    !loading &&
+    !incidents.some((i) => i.id === incidentId);
+
+  useEffect(() => {
+    if (unknownIncidentParam) {
+      router.replace("/", { scroll: false });
+    }
+  }, [unknownIncidentParam, router, incidentId]);
+
+  useEffect(() => {
+    if (focusId == null || focusLng == null || focusLat == null || !mapRef.current) {
+      return;
+    }
+    const map = mapRef.current.getMap();
+    if (!map) return;
+    map.flyTo({
+      center: [focusLng, focusLat],
+      zoom: Math.max(map.getZoom(), 14),
+      duration: 1200,
+    });
+  }, [focusId, focusLng, focusLat]);
+
+  const openReport = useCallback(() => {
+    router.replace("/", { scroll: false });
+    setReportOpen(true);
+  }, [router]);
+
+  const closeDetail = useCallback(() => {
+    router.replace("/", { scroll: false });
+  }, [router]);
+
+  const selectIncident = useCallback((inc: IncidentRow) => {
+    router.replace(`/?incident=${inc.id}`, { scroll: false });
+  }, [router]);
+
   return (
     <div className="relative h-full w-full">
       <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[min(100%,calc(100%-7rem))]">
@@ -92,7 +143,7 @@ export default function LafdaMap() {
           type="button"
           size="lg"
           className="pointer-events-auto h-12 gap-2 rounded-full px-6 shadow-lg"
-          onClick={() => setReportOpen(true)}
+          onClick={openReport}
         >
           <Plus className="size-5" aria-hidden />
           Report incident
@@ -105,6 +156,8 @@ export default function LafdaMap() {
         defaultCenter={{ lat: view.latitude, lng: view.longitude }}
         getMapCenter={getMapCenter}
       />
+
+      <IncidentDetailSheet incident={selectedIncident} onClose={closeDetail} />
 
       <Map
         ref={mapRef}
@@ -131,7 +184,7 @@ export default function LafdaMap() {
           </Marker>
         ) : null}
         {visible.map((inc) => (
-          <IncidentMarker key={inc.id} incident={inc} />
+          <IncidentMarker key={inc.id} incident={inc} onSelect={selectIncident} />
         ))}
       </Map>
     </div>

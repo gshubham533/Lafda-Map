@@ -1,7 +1,7 @@
 ================================================================================
 LAFDAMAP — MVP BUILD PLAN & PROGRESS LOG
 ================================================================================
-Last updated: 2026-03-22 (UTC) — Phase 3 shipped
+Last updated: 2026-03-22 (UTC) — Phase 4 shipped
 Source PRD: prd.txt (Product Requirements Document v1.0 MVP)
 
 This file is the single project progress ledger. Cursor agents must keep it in
@@ -35,6 +35,7 @@ Environment variables (see .env.example):
   - NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
   - NEXT_PUBLIC_MAP_STYLE_URL (optional; default OpenFreeMap dark)
   - NEXT_PUBLIC_MAP_DEFAULT_CENTER (lat,lng,zoom)
+  - NEXT_PUBLIC_SITE_URL (optional; Open Graph / canonical for /incident/[id])
 
 --------------------------------------------------------------------------------
 3. PHASE OVERVIEW (STATUS)
@@ -42,7 +43,7 @@ Environment variables (see .env.example):
   Phase 1 — Foundation          [DONE]
   Phase 2 — Map + data          [DONE]
   Phase 3 — Report incident     [DONE]
-  Phase 4 — Detail + share      [TODO]
+  Phase 4 — Detail + share      [DONE]
   Phase 5 — Live WebRTC + chat  [TODO]
   Phase 6 — Ship (PWA, Vercel)  [TODO]
 
@@ -85,17 +86,17 @@ PHASE 3 — Report incident [DONE]
   [x] Brief success copy when fallback location used; insert user_id = session user (RLS)
   [x] New pins via existing Realtime subscription (no hook change)
 
+PHASE 4 — Detail + share [DONE]
+  [x] Tap marker → bottom sheet detail card (IncidentDetailSheet)
+  [x] Category badge, title, description, relative time, reporter handle
+  [x] Reporter handle: anonymous_XXXX from auth user_id (deterministic last 4 hex)
+  [x] “Watch live” / “Go live here” disabled + title (Phase 5)
+  [x] Share (Web Share API or copy) + /incident/[id] page + ?incident= deep link to map
+  [x] Open Graph + Twitter metadata + canonical via getPublicSiteUrl()
+
 --------------------------------------------------------------------------------
 5. DETAILED TODO LIST — REMAINING
 --------------------------------------------------------------------------------
-
-PHASE 4 — Detail + share [TODO]
-  [ ] Tap marker opens bottom sheet (detail card)
-  [ ] Show: category badge, title, description, relative time, reporter handle
-  [ ] Reporter handle: anonymous_XXXX (user_metadata or profiles table)
-  [ ] CTAs: “Watch live” / “Go live here” (wire in Phase 5)
-  [ ] Share button + deep link route app/incident/[id]/page.tsx
-  [ ] Optional: minimal Open Graph metadata for shared links
 
 PHASE 5 — Live streaming [TODO]
   [ ] DB: live_sessions (+ chat storage or Realtime broadcast channel)
@@ -130,15 +131,21 @@ PHASE 6 — Ship [TODO]
   .env.example
   README.md
   app/page.tsx
+  app/incident/[id]/page.tsx
   app/layout.tsx
   app/globals.css
   components/providers/auth-provider.tsx
   components/map/lafda-map.tsx
+  components/map/incident-detail-sheet.tsx
+  components/map/incident-detail-card.tsx
   components/map/report-incident-sheet.tsx
   components/map/filter-chips.tsx
   components/map/incident-marker.tsx
   hooks/use-incidents-realtime.ts
   lib/incidents.ts
+  lib/get-incident.ts
+  lib/relative-time.ts
+  lib/site-url.ts
   lib/map-config.ts
   lib/map-style.ts
   lib/supabase/client.ts
