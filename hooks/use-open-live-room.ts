@@ -42,11 +42,7 @@ export function useOpenLiveRoom() {
           setActionError("Could not start stream (sign-in).");
           return false;
         }
-        const r = await startLiveSession(
-          supabase,
-          opts.incident.id,
-          user.id,
-        );
+        const r = await startLiveSession(supabase, opts.incident.id);
         if ("error" in r) {
           if (isUniqueViolation(r.code)) {
             setActionError("Someone is already live on this pin.");

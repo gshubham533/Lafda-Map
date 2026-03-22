@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type SimplePeer from "simple-peer";
-import { Send, X } from "lucide-react";
+import { Send, SwitchCamera, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { fetchChatMessagesForSession } from "@/lib/live-chat";
 import { endLiveSession } from "@/lib/live-sessions";
 import { getRtcConfiguration } from "@/lib/webrtc-config";
 import {
@@ -40,6 +41,22 @@ function liveChannelName(sessionId: string) {
   return `live:${sessionId}`;
 }
 
+function replaceVideoTrackOnPeers(
+  peers: Map<string, PeerInstance>,
+  track: MediaStreamTrack,
+) {
+  peers.forEach((peer) => {
+    const pc = (peer as unknown as { _pc?: RTCPeerConnection })._pc;
+    if (!pc) return;
+    for (const sender of pc.getSenders()) {
+      if (sender.track?.kind === "video") {
+        void sender.replaceTrack(track);
+        break;
+      }
+    }
+  });
+}
+
 export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) {
   const [error, setError] = useState<string | null>(null);
   const [presenceViewers, setPresenceViewers] = useState(0);
@@ -49,6 +66,9 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const hostStreamRef = useRef<MediaStream | null>(null);
+  const hostPeersRef = useRef<Map<string, PeerInstance>>(new Map());
+  const facingModeRef = useRef<"user" | "environment">("user");
 
   useEffect(() => {
     void createClient()
@@ -59,15 +79,50 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    async function loadChatHistory() {
+      const supabase = createClient();
+      const rows = await fetchChatMessagesForSession(supabase, sessionId);
+      if (cancelled) return;
+      setChat(
+        rows.map((r) => ({
+          id: r.id,
+          handle: r.handle,
+          text: r.body,
+          ts: new Date(r.created_at).getTime(),
+        })),
+      );
+    }
+    void loadChatHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOs = html.style.overscrollBehavior;
+    const prevBodyOs = body.style.overscrollBehavior;
+    const prevBodyTouch = body.style.touchAction;
+    html.style.overscrollBehavior = "none";
+    body.style.overscrollBehavior = "none";
+    body.style.touchAction = "manipulation";
+    return () => {
+      html.style.overscrollBehavior = prevHtmlOs;
+      body.style.overscrollBehavior = prevBodyOs;
+      body.style.touchAction = prevBodyTouch;
+    };
+  }, []);
+
+  useEffect(() => {
     const supabase = createClient();
     const rtc = getRtcConfiguration();
     const presenceKey =
       mode === "host" ? `host:${crypto.randomUUID()}` : `viewer:${crypto.randomUUID()}`;
     const viewerKeyRef = { current: crypto.randomUUID() };
 
-    const peersRef = { current: new Map<string, PeerInstance>() };
     let viewerPeer: PeerInstance | null = null;
-    let localStream: MediaStream | null = null;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let destroyed = false;
     let helloTimer: number | null = null;
@@ -95,19 +150,19 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
     }
 
     function cleanupStreams() {
-      localStream?.getTracks().forEach((t) => t.stop());
-      localStream = null;
+      hostStreamRef.current?.getTracks().forEach((t) => t.stop());
+      hostStreamRef.current = null;
     }
 
     function destroyAllPeers() {
-      peersRef.current.forEach((p) => {
+      hostPeersRef.current.forEach((p) => {
         try {
           p.destroy();
         } catch {
           /* noop */
         }
       });
-      peersRef.current.clear();
+      hostPeersRef.current.clear();
       if (viewerPeer) {
         try {
           viewerPeer.destroy();
@@ -120,10 +175,11 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
 
     async function runHost() {
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingModeRef.current },
           audio: true,
         });
+        hostStreamRef.current = stream;
       } catch {
         setError("Camera/microphone access denied or unavailable.");
         return;
@@ -131,7 +187,7 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
       if (destroyed) return;
 
       if (localVideoRef.current) {
-        localVideoRef.current.srcObject = localStream;
+        localVideoRef.current.srcObject = hostStreamRef.current;
       }
 
       channel = supabase.channel(liveChannelName(sessionId), {
@@ -144,7 +200,7 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
       channel.on("broadcast", { event: "signal" }, ({ payload }) => {
         const p = payload as SignalPayload;
         if (p.from !== "viewer") return;
-        const peer = peersRef.current.get(p.viewerKey);
+        const peer = hostPeersRef.current.get(p.viewerKey);
         if (peer) {
           try {
             peer.signal(p.data);
@@ -157,23 +213,27 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
       channel.on("broadcast", { event: "chat" }, ({ payload }) => {
         const msg = payload as ChatMsg;
         if (!msg?.id || !msg.text) return;
-        setChat((c) => [...c, msg].slice(-100));
+        setChat((c) => {
+          if (c.some((x) => x.id === msg.id)) return c;
+          return [...c, msg].slice(-100);
+        });
       });
 
       channel.on("broadcast", { event: "viewer-hello" }, ({ payload }) => {
         const vk = (payload as { viewerKey?: string }).viewerKey;
-        if (!vk || peersRef.current.has(vk) || !localStream || !channel) return;
+        const stream = hostStreamRef.current;
+        if (!vk || hostPeersRef.current.has(vk) || !stream || !channel) return;
 
         void import("simple-peer").then(({ default: Peer }) => {
-          if (destroyed || !localStream || !channel) return;
+          if (destroyed || !hostStreamRef.current || !channel) return;
           const peer: PeerInstance = new Peer({
             initiator: true,
-            stream: localStream,
+            stream: hostStreamRef.current,
             trickle: true,
             config: rtc,
           });
 
-          peersRef.current.set(vk, peer);
+          hostPeersRef.current.set(vk, peer);
 
           peer.on("signal", (data) => {
             void sendBroadcast(channel!, "signal", {
@@ -184,11 +244,11 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
           });
 
           peer.on("close", () => {
-            peersRef.current.delete(vk);
+            hostPeersRef.current.delete(vk);
           });
 
           peer.on("error", () => {
-            peersRef.current.delete(vk);
+            hostPeersRef.current.delete(vk);
           });
         });
       });
@@ -233,7 +293,10 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
       channel.on("broadcast", { event: "chat" }, ({ payload }) => {
         const msg = payload as ChatMsg;
         if (!msg?.id || !msg.text) return;
-        setChat((c) => [...c, msg].slice(-100));
+        setChat((c) => {
+          if (c.some((x) => x.id === msg.id)) return c;
+          return [...c, msg].slice(-100);
+        });
       });
 
       channel.on("presence", { event: "sync" }, () => {
@@ -324,15 +387,37 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
     const text = chatDraft.trim();
     if (!text || text.length > 500) return;
     const supabase = createClient();
-    const ch = supabase.channel(liveChannelName(sessionId), {
-      config: { broadcast: { self: false } },
-    });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    let msgId = crypto.randomUUID();
+    const { data: inserted, error: insertErr } = await supabase
+      .from("live_chat_messages")
+      .insert({
+        session_id: sessionId,
+        incident_id: incident.id,
+        user_id: user.id,
+        handle: myHandle,
+        body: text,
+      })
+      .select("id")
+      .single();
+    if (!insertErr && inserted && typeof inserted === "object" && "id" in inserted) {
+      msgId = (inserted as { id: string }).id;
+    }
+
     const msg: ChatMsg = {
-      id: crypto.randomUUID(),
+      id: msgId,
       handle: myHandle,
       text,
       ts: Date.now(),
     };
+
+    const ch = supabase.channel(liveChannelName(sessionId), {
+      config: { broadcast: { self: false } },
+    });
     await ch.subscribe();
     const chatRes = await ch.send({
       type: "broadcast",
@@ -340,13 +425,51 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
       payload: msg as unknown as Record<string, unknown>,
     });
     if (chatRes !== "ok") console.warn("[LiveRoom] chat send", chatRes);
-    setChat((c) => [...c, msg].slice(-100));
+    setChat((c) => {
+      if (c.some((x) => x.id === msg.id)) return c;
+      return [...c, msg].slice(-100);
+    });
     setChatDraft("");
     void ch.unsubscribe();
-  }, [chatDraft, myHandle, sessionId]);
+  }, [chatDraft, myHandle, sessionId, incident.id]);
+
+  const flipCamera = useCallback(async () => {
+    if (mode !== "host") return;
+    const nextFacing =
+      facingModeRef.current === "user" ? "environment" : "user";
+    const current = hostStreamRef.current;
+    const audioTracks = [...(current?.getAudioTracks() ?? [])];
+    try {
+      const vidOnly = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: nextFacing },
+        audio: false,
+      });
+      current?.getVideoTracks().forEach((t) => t.stop());
+      facingModeRef.current = nextFacing;
+      const merged = new MediaStream([
+        ...vidOnly.getVideoTracks(),
+        ...audioTracks,
+      ]);
+      hostStreamRef.current = merged;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = merged;
+      }
+      const vt = merged.getVideoTracks()[0];
+      if (vt) replaceVideoTrackOnPeers(hostPeersRef.current, vt);
+    } catch {
+      setError("Could not switch camera.");
+    }
+  }, [mode]);
 
   const handleEndHost = useCallback(async () => {
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      onLeave();
+      return;
+    }
     const ch = supabase.channel(liveChannelName(sessionId), {
       config: { broadcast: { self: false } },
     });
@@ -358,7 +481,7 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
     });
     if (endRes !== "ok") console.warn("[LiveRoom] session-ended", endRes);
     void ch.unsubscribe();
-    await endLiveSession(supabase, sessionId);
+    await endLiveSession(supabase, sessionId, user.id);
     onLeave();
   }, [onLeave, sessionId]);
 
@@ -366,7 +489,7 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
   const accent = categoryColor(incident.type);
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-background">
+    <div className="fixed inset-0 z-[60] flex touch-manipulation flex-col overscroll-none bg-background">
       <div className="relative flex min-h-0 flex-1 flex-col bg-black">
         {mode === "host" ? (
           <video
@@ -409,7 +532,20 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
           </div>
         </div>
 
-        <div className="pointer-events-none absolute right-2 top-2">
+        <div className="pointer-events-none absolute right-2 top-2 flex gap-2">
+          {mode === "host" ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="secondary"
+              className="pointer-events-auto shadow-md"
+              onClick={() => void flipCamera()}
+              aria-label="Flip camera"
+              title="Front / back camera"
+            >
+              <SwitchCamera className="size-4" />
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="icon-sm"
@@ -435,7 +571,7 @@ export function LiveRoom({ incident, sessionId, mode, onLeave }: LiveRoomProps) 
       <div className="flex max-h-[40vh] min-h-[140px] flex-col border-t border-border bg-card">
         <div className="max-h-[min(28vh,200px)] space-y-1 overflow-y-auto p-2 text-xs">
           {chat.length === 0 ? (
-            <p className="px-1 text-muted-foreground">Chat (ephemeral)</p>
+            <p className="px-1 text-muted-foreground">Chat (saved to this incident)</p>
           ) : (
             chat.map((m) => (
               <div key={m.id} className="rounded-md bg-muted/40 px-2 py-1">

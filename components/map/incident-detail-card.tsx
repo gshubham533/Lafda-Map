@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Radio, Share2, Video } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import {
   anonymousReporterHandle,
   categoryColor,
@@ -23,6 +24,8 @@ type Props = {
   onGoLive?: () => void;
   onWatchLive?: () => void;
   actionError?: string | null;
+  /** When set, only the reporter can use Go live */
+  currentUserId?: string | null;
 };
 
 export function IncidentDetailCard({
@@ -34,12 +37,18 @@ export function IncidentDetailCard({
   onGoLive,
   onWatchLive,
   actionError,
+  currentUserId,
 }: Props) {
   const [shareHint, setShareHint] = useState<string | null>(null);
   const accent = categoryColor(incident.type);
   const label = categoryLabel(incident.type);
   const when = formatRelativeTime(incident.created_at);
   const reporter = anonymousReporterHandle(incident.user_id);
+  const isReporter =
+    Boolean(incident.user_id) &&
+    Boolean(currentUserId) &&
+    incident.user_id === currentUserId;
+
   async function share() {
     const url = `${window.location.origin}/incident/${incident.id}`;
     setShareHint(null);
@@ -149,9 +158,13 @@ export function IncidentDetailCard({
           type="button"
           variant="secondary"
           className="gap-2 sm:flex-1"
-          disabled={incident.is_live || !onGoLive}
+          disabled={incident.is_live || !onGoLive || !isReporter}
           title={
-            incident.is_live ? "Someone is already live on this pin" : undefined
+            incident.is_live
+              ? "Someone is already live on this pin"
+              : !isReporter
+                ? "Only the person who reported this can go live"
+                : undefined
           }
           onClick={onGoLive}
         >

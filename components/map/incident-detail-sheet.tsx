@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { IncidentDetailCard } from "@/components/map/incident-detail-card";
 import { Button } from "@/components/ui/button";
+import { useAuthUserId } from "@/hooks/use-auth-user-id";
 import { useLiveSessionMeta } from "@/hooks/use-live-session-meta";
 import type { IncidentRow } from "@/lib/incidents";
 
@@ -25,6 +26,7 @@ export function IncidentDetailSheet({
 }: Props) {
   const open = incident !== null;
   const liveMeta = useLiveSessionMeta(incident?.id);
+  const currentUserId = useAuthUserId();
 
   const handleClose = useCallback(() => {
     onClose();
@@ -92,6 +94,7 @@ export function IncidentDetailSheet({
                 sessionId: liveMeta.id,
               });
             }}
+            currentUserId={currentUserId}
           />
         </div>
       </div>

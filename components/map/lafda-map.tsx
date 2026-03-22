@@ -7,6 +7,7 @@ import Map, {
   type MapRef,
 } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
+import Link from "next/link";
 import { Plus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LiveRoom } from "@/components/live/live-room";
@@ -143,12 +144,18 @@ export default function LafdaMap() {
 
   return (
     <div className="relative h-full w-full">
-      <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[min(100%,calc(100%-7rem))]">
+      <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[min(100%,calc(100%-7rem))] flex-col gap-2 sm:max-w-none">
         <FilterChips
           value={filter}
           onChange={setFilter}
           className="pointer-events-auto"
         />
+        <Link
+          href="/events"
+          className="pointer-events-auto w-fit rounded-lg border border-border/80 bg-card/90 px-2.5 py-1.5 text-xs font-medium text-muted-foreground shadow-md backdrop-blur-sm transition-colors hover:bg-muted/50 hover:text-foreground"
+        >
+          All events
+        </Link>
       </div>
 
       {loading ? (

@@ -31,7 +31,17 @@ This adds `public.live_sessions`, RLS, triggers that flip `incidents.is_live`, t
 
 **WebRTC**: the app uses **simple-peer** with public **STUN** only by default. Symmetric NAT / strict firewalls may need a **TURN** provider later; set comma-separated ICE URLs in `NEXT_PUBLIC_WEBRTC_ICE_SERVERS` (see `.env.example`).
 
-Signaling and ephemeral chat use **Supabase Realtime broadcast** on channel `live:{sessionId}` (not stored in Postgres).
+Signaling uses **Supabase Realtime broadcast** on channel `live:{sessionId}`. Chat messages are also written to **`live_chat_messages`** (see migrations below) so they appear on the incident page and in **All events** flows.
+
+**Additional migrations** (run in order after the base incidents + live tables):
+
+- [`20250322150000_reporter_only_live.sql`](supabase/migrations/20250322150000_reporter_only_live.sql) — `start_live_session_for_incident` RPC; only the incident reporter can start a live session.
+- [`20250322160000_live_chat_peak.sql`](supabase/migrations/20250322160000_live_chat_peak.sql) — `peak_viewers` on `live_sessions`, `live_chat_messages` + RLS.
+- [`20250322170000_incident_media.sql`](supabase/migrations/20250322170000_incident_media.sql) — Storage bucket **`incident-media`**, `incident_media` table + RLS (reporter uploads; public read).
+
+**Storage**: create the bucket via migration above; in the dashboard, confirm **Storage → incident-media** exists and is public if you want direct `getPublicUrl` links. Max file size and MIME allowlists can be tightened in the dashboard for production.
+
+**Privacy**: the incident list (`/events`), chat log, and media gallery are **world-readable** to anyone with the URL (same as the map). Moderation is via Supabase Studio for now.
 
 ## Setup
 

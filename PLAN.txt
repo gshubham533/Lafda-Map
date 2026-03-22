@@ -1,7 +1,7 @@
 ================================================================================
 LAFDAMAP — MVP BUILD PLAN & PROGRESS LOG
 ================================================================================
-Last updated: 2026-03-22 (UTC) — Phase 6 shipped
+Last updated: 2026-03-22 (UTC) — Live events + media iteration shipped
 Source PRD: prd.txt (Product Requirements Document v1.0 MVP)
 
 This file is the single project progress ledger. Cursor agents must keep it in
@@ -31,6 +31,7 @@ SFU streaming, incident expiry automation, native apps.
   - Auth: Supabase anonymous sign-in (signInAnonymously), @supabase/ssr
   - Live streaming (Phase 5): WebRTC via simple-peer + Supabase Realtime broadcast signaling; STUN via env (TURN optional)
   - PWA (Phase 6): `app/manifest.ts` + `public/icon.svg` (installable; no offline service worker)
+  - Storage: Supabase Storage bucket `incident-media` + `incident_media` + upload/record on incident detail (reporter-only)
 
 Environment variables (see .env.example):
   - NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -48,8 +49,9 @@ Environment variables (see .env.example):
   Phase 4 — Detail + share      [DONE]
   Phase 5 — Live WebRTC + chat  [DONE]
   Phase 6 — Ship (PWA, Vercel)  [DONE]
+  Phase 7 — Live hardening + events + media  [DONE]
 
-Dependency order: 1 → 2 → 3 → 4 → 5 → 6
+Dependency order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 --------------------------------------------------------------------------------
 4. DETAILED TODO LIST — COMPLETED
@@ -102,7 +104,7 @@ PHASE 5 — Live WebRTC + chat [DONE]
   [x] Signaling: Realtime broadcast on live:{sessionId} (SDP/ICE, multi-viewer host mesh)
   [x] simple-peer host (initiator) per viewer; STUN defaults + optional NEXT_PUBLIC_WEBRTC_ICE_SERVERS
   [x] LiveRoom HUD: LIVE, category, presence-based viewer count, end/leave
-  [x] Ephemeral chat (broadcast, not persisted)
+  [x] Live chat via broadcast (Phase 7 adds Postgres persistence + history)
   [x] End stream: host updates session + broadcast; trigger clears is_live / pin pulse
 
 PHASE 6 — Ship [DONE]
@@ -111,20 +113,30 @@ PHASE 6 — Ship [DONE]
   [x] README: Vercel import, env vars, smoke test table
   [x] PLAN.txt / README aligned with stack
 
+PHASE 7 — Live hardening + events + media [DONE]
+  [x] Reporter-only live: `start_live_session_for_incident` RPC + revoke direct INSERT on `live_sessions`
+   (supabase/migrations/20250322150000_reporter_only_live.sql); lib/live-sessions.ts; UI gating
+  [x] LiveRoom: camera flip + overscroll/touch mitigations; `endLiveSession` filters host
+  [x] Persisted chat: `live_chat_messages` + optional `peak_viewers` (20250322160000_live_chat_peak.sql);
+   LiveRoom inserts + broadcast; public `/events` + incident history sections
+  [x] Media: bucket `incident-media` + `incident_media` (20250322170000_incident_media.sql);
+   upload + MediaRecorder on `/incident/[id]` (IncidentMediaSection)
+
 --------------------------------------------------------------------------------
 5. DETAILED TODO LIST — REMAINING
 --------------------------------------------------------------------------------
 
-(MVP phases 1–6 complete. Further work is product iteration, not tracked here.)
+(MVP phases 1–6 complete; Phase 7 iteration shipped. Further work is product iteration, not tracked here.)
 
 --------------------------------------------------------------------------------
-6. PRD FEATURE MAPPING (F1–F5)
+6. PRD FEATURE MAPPING (F1–F6)
 --------------------------------------------------------------------------------
   F1 Incident map      — Phases 1–2 (live pulse already for is_live)
   F2 Detail card       — Phase 4 (+ live CTAs Phase 5)
   F3 Report flow       — Phase 3
-  F4 Live streaming    — Phase 5
+  F4 Live streaming    — Phase 5 (+ Phase 7 reporter-only + persisted chat)
   F5 Guest auth        — Phase 1 (ongoing)
+  F6 Media on incident — Phase 7 (Storage + incident_media)
 
 --------------------------------------------------------------------------------
 7. KEY FILES (REFERENCE)
@@ -136,12 +148,15 @@ PHASE 6 — Ship [DONE]
   app/page.tsx
   app/manifest.ts
   app/incident/[id]/page.tsx
+  app/events/page.tsx
   app/layout.tsx
   public/icon.svg
   app/globals.css
   components/providers/auth-provider.tsx
   components/live/live-room.tsx
   components/incident/incident-page-live.tsx
+  components/incident/incident-history-section.tsx
+  components/incident/incident-media-section.tsx
   components/map/lafda-map.tsx
   components/map/incident-detail-sheet.tsx
   components/map/incident-detail-card.tsx
@@ -153,6 +168,10 @@ PHASE 6 — Ship [DONE]
   hooks/use-open-live-room.ts
   lib/incidents.ts
   lib/live-sessions.ts
+  lib/live-chat.ts
+  lib/get-incident-history.ts
+  lib/get-incident-media.ts
+  lib/list-incidents.ts
   lib/webrtc-config.ts
   lib/get-incident.ts
   lib/relative-time.ts
@@ -163,6 +182,9 @@ PHASE 6 — Ship [DONE]
   lib/supabase/server.ts
   supabase/migrations/20250322120000_incidents.sql
   supabase/migrations/20250322140000_live_sessions.sql
+  supabase/migrations/20250322150000_reporter_only_live.sql
+  supabase/migrations/20250322160000_live_chat_peak.sql
+  supabase/migrations/20250322170000_incident_media.sql
   .cursor/rules/lafdamap-plan-sync.mdc
 
 --------------------------------------------------------------------------------

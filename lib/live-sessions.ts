@@ -31,27 +31,24 @@ export async function fetchActiveLiveSession(
 export async function startLiveSession(
   supabase: SupabaseClient,
   incidentId: string,
-  hostUserId: string,
 ): Promise<{ sessionId: string } | { error: string; code?: string }> {
-  const { data, error } = await supabase
-    .from("live_sessions")
-    .insert({
-      incident_id: incidentId,
-      host_user_id: hostUserId,
-      is_active: true,
-    })
-    .select("id")
-    .single();
+  const { data, error } = await supabase.rpc("start_live_session_for_incident", {
+    p_incident_id: incidentId,
+  });
 
   if (error) {
     return { error: error.message, code: error.code };
   }
-  return { sessionId: data.id as string };
+  if (typeof data !== "string" || !data) {
+    return { error: "No session id returned" };
+  }
+  return { sessionId: data };
 }
 
 export async function endLiveSession(
   supabase: SupabaseClient,
   sessionId: string,
+  hostUserId: string,
 ): Promise<{ error: string | null }> {
   const { error } = await supabase
     .from("live_sessions")
@@ -59,7 +56,8 @@ export async function endLiveSession(
       is_active: false,
       ended_at: new Date().toISOString(),
     })
-    .eq("id", sessionId);
+    .eq("id", sessionId)
+    .eq("host_user_id", hostUserId);
 
   if (error) return { error: error.message };
   return { error: null };

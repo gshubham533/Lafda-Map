@@ -2,12 +2,14 @@
 
 import { LiveRoom } from "@/components/live/live-room";
 import { IncidentDetailCard } from "@/components/map/incident-detail-card";
+import { useAuthUserId } from "@/hooks/use-auth-user-id";
 import { useLiveSessionMeta } from "@/hooks/use-live-session-meta";
 import { useOpenLiveRoom } from "@/hooks/use-open-live-room";
 import type { IncidentRow } from "@/lib/incidents";
 
 export function IncidentPageLive({ incident }: { incident: IncidentRow }) {
   const meta = useLiveSessionMeta(incident.id);
+  const currentUserId = useAuthUserId();
   const {
     liveRoom,
     openLive,
@@ -33,6 +35,7 @@ export function IncidentPageLive({ incident }: { incident: IncidentRow }) {
             sessionId: meta.id,
           });
         }}
+        currentUserId={currentUserId}
       />
       {liveRoom ? (
         <LiveRoom
