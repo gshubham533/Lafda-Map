@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LafdaMap">
+  <rect width="512" height="512" rx="108" fill="#171717"/>
+  <circle cx="256" cy="200" r="88" fill="#FF3B3B" stroke="#fafafa" stroke-width="16"/>
+  <path d="M256 288c-48 0-120 120-120 176h240c0-56-72-176-120-176z" fill="#FF3B3B"/>
+</svg>

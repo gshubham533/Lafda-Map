@@ -20,12 +20,14 @@
     "react": "^18",
     "react-dom": "^18",
     "react-map-gl": "^8.1.0",
+    "simple-peer": "^9.11.1",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/simple-peer": "^9.11.9",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "postcss": "^8",

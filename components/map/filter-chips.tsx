@@ -17,7 +17,7 @@ export function FilterChips({ value, onChange, className }: Props) {
   return (
     <div
       className={cn(
-        "flex flex-wrap gap-1.5 rounded-xl border border-border/80 bg-card/95 p-1.5 shadow-md backdrop-blur-sm",
+        "flex max-w-full flex-nowrap gap-1.5 overflow-x-auto overflow-y-hidden rounded-xl border border-border/80 bg-card/95 p-1.5 shadow-md backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className,
       )}
       role="tablist"
@@ -33,7 +33,7 @@ export function FilterChips({ value, onChange, className }: Props) {
             aria-selected={active}
             variant={active ? "default" : "outline"}
             size="sm"
-            className="h-8 rounded-lg text-xs"
+            className="h-8 shrink-0 touch-manipulation rounded-lg text-xs"
             onClick={() => onChange(opt.value)}
           >
             {opt.label}

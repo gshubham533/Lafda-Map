@@ -3,15 +3,28 @@
 import { useCallback, useEffect } from "react";
 import { IncidentDetailCard } from "@/components/map/incident-detail-card";
 import { Button } from "@/components/ui/button";
+import { useLiveSessionMeta } from "@/hooks/use-live-session-meta";
 import type { IncidentRow } from "@/lib/incidents";
 
 type Props = {
   incident: IncidentRow | null;
   onClose: () => void;
+  onRequestLive: (opts: {
+    mode: "host" | "viewer";
+    incident: IncidentRow;
+    sessionId?: string;
+  }) => void | Promise<void>;
+  liveActionError?: string | null;
 };
 
-export function IncidentDetailSheet({ incident, onClose }: Props) {
+export function IncidentDetailSheet({
+  incident,
+  onClose,
+  onRequestLive,
+  liveActionError,
+}: Props) {
   const open = incident !== null;
+  const liveMeta = useLiveSessionMeta(incident?.id);
 
   const handleClose = useCallback(() => {
     onClose();
@@ -64,7 +77,22 @@ export function IncidentDetailSheet({ incident, onClose }: Props) {
           </div>
         </div>
         <div className="overflow-y-auto p-4 pb-6">
-          <IncidentDetailCard incident={incident} variant="sheet" />
+          <IncidentDetailCard
+            incident={incident}
+            variant="sheet"
+            liveSessionId={liveMeta?.id}
+            liveViewerCount={liveMeta?.viewer_count}
+            actionError={liveActionError}
+            onGoLive={() => void onRequestLive({ mode: "host", incident })}
+            onWatchLive={() => {
+              if (!liveMeta?.id) return;
+              void onRequestLive({
+                mode: "viewer",
+                incident,
+                sessionId: liveMeta.id,
+              });
+            }}
+          />
         </div>
       </div>
     </div>

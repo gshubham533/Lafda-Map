@@ -17,12 +17,23 @@ type Props = {
   incident: IncidentRow;
   variant?: "sheet" | "page";
   className?: string;
+  /** Active live_sessions.id when this incident is live */
+  liveSessionId?: string | null;
+  liveViewerCount?: number | null;
+  onGoLive?: () => void;
+  onWatchLive?: () => void;
+  actionError?: string | null;
 };
 
 export function IncidentDetailCard({
   incident,
   variant = "sheet",
   className,
+  liveSessionId,
+  liveViewerCount,
+  onGoLive,
+  onWatchLive,
+  actionError,
 }: Props) {
   const [shareHint, setShareHint] = useState<string | null>(null);
   const accent = categoryColor(incident.type);
@@ -81,6 +92,9 @@ export function IncidentDetailCard({
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-destructive" />
             </span>
             LIVE
+            {liveViewerCount != null && liveViewerCount > 0 ? (
+              <span className="font-normal opacity-90">· {liveViewerCount} watching</span>
+            ) : null}
           </span>
         ) : null}
       </div>
@@ -118,23 +132,39 @@ export function IncidentDetailCard({
           type="button"
           variant="secondary"
           className="gap-2 sm:flex-1"
-          disabled
-          title="Live streaming ships in Phase 5"
+          disabled={!incident.is_live || !liveSessionId || !onWatchLive}
+          title={
+            !incident.is_live
+              ? "No active stream"
+              : !liveSessionId
+                ? "Loading session…"
+                : undefined
+          }
+          onClick={onWatchLive}
         >
-          <Video className="size-4 opacity-60" aria-hidden />
+          <Video className="size-4" aria-hidden />
           Watch live
         </Button>
         <Button
           type="button"
           variant="secondary"
           className="gap-2 sm:flex-1"
-          disabled
-          title="Live streaming ships in Phase 5"
+          disabled={incident.is_live || !onGoLive}
+          title={
+            incident.is_live ? "Someone is already live on this pin" : undefined
+          }
+          onClick={onGoLive}
         >
-          <Radio className="size-4 opacity-60" aria-hidden />
+          <Radio className="size-4" aria-hidden />
           Go live here
         </Button>
       </div>
+
+      {actionError ? (
+        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-center text-xs text-destructive-foreground">
+          {actionError}
+        </p>
+      ) : null}
 
       {shareHint ? (
         <p className="text-center text-xs text-muted-foreground">{shareHint}</p>

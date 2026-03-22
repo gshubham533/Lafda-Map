@@ -1,7 +1,7 @@
 ================================================================================
 LAFDAMAP — MVP BUILD PLAN & PROGRESS LOG
 ================================================================================
-Last updated: 2026-03-22 (UTC) — Phase 4 shipped
+Last updated: 2026-03-22 (UTC) — Phase 6 shipped
 Source PRD: prd.txt (Product Requirements Document v1.0 MVP)
 
 This file is the single project progress ledger. Cursor agents must keep it in
@@ -29,13 +29,15 @@ SFU streaming, incident expiry automation, native apps.
   - Map: MapLibre GL via react-map-gl/maplibre + OpenFreeMap tiles (no API key)
   - Backend: Supabase (Postgres, Auth, Realtime)
   - Auth: Supabase anonymous sign-in (signInAnonymously), @supabase/ssr
-  - Live streaming (Phase 5): WebRTC via simple-peer + Supabase signaling
+  - Live streaming (Phase 5): WebRTC via simple-peer + Supabase Realtime broadcast signaling; STUN via env (TURN optional)
+  - PWA (Phase 6): `app/manifest.ts` + `public/icon.svg` (installable; no offline service worker)
 
 Environment variables (see .env.example):
   - NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
   - NEXT_PUBLIC_MAP_STYLE_URL (optional; default OpenFreeMap dark)
   - NEXT_PUBLIC_MAP_DEFAULT_CENTER (lat,lng,zoom)
   - NEXT_PUBLIC_SITE_URL (optional; Open Graph / canonical for /incident/[id])
+  - NEXT_PUBLIC_WEBRTC_ICE_SERVERS (optional; comma-separated STUN/TURN URLs)
 
 --------------------------------------------------------------------------------
 3. PHASE OVERVIEW (STATUS)
@@ -44,8 +46,8 @@ Environment variables (see .env.example):
   Phase 2 — Map + data          [DONE]
   Phase 3 — Report incident     [DONE]
   Phase 4 — Detail + share      [DONE]
-  Phase 5 — Live WebRTC + chat  [TODO]
-  Phase 6 — Ship (PWA, Vercel)  [TODO]
+  Phase 5 — Live WebRTC + chat  [DONE]
+  Phase 6 — Ship (PWA, Vercel)  [DONE]
 
 Dependency order: 1 → 2 → 3 → 4 → 5 → 6
 
@@ -94,25 +96,26 @@ PHASE 4 — Detail + share [DONE]
   [x] Share (Web Share API or copy) + /incident/[id] page + ?incident= deep link to map
   [x] Open Graph + Twitter metadata + canonical via getPublicSiteUrl()
 
+PHASE 5 — Live WebRTC + chat [DONE]
+  [x] DB: live_sessions + partial unique (one active session / incident) + triggers → incidents.is_live
+  [x] RLS: public read; host insert/update own; viewer_count via live_session_viewer_delta RPC
+  [x] Signaling: Realtime broadcast on live:{sessionId} (SDP/ICE, multi-viewer host mesh)
+  [x] simple-peer host (initiator) per viewer; STUN defaults + optional NEXT_PUBLIC_WEBRTC_ICE_SERVERS
+  [x] LiveRoom HUD: LIVE, category, presence-based viewer count, end/leave
+  [x] Ephemeral chat (broadcast, not persisted)
+  [x] End stream: host updates session + broadcast; trigger clears is_live / pin pulse
+
+PHASE 6 — Ship [DONE]
+  [x] PWA: `app/manifest.ts`, `public/icon.svg`, standalone display, viewport/theme
+  [x] Mobile-first tweaks: filter chip row scroll, safe-area FAB, touch-manipulation, tap highlight off
+  [x] README: Vercel import, env vars, smoke test table
+  [x] PLAN.txt / README aligned with stack
+
 --------------------------------------------------------------------------------
 5. DETAILED TODO LIST — REMAINING
 --------------------------------------------------------------------------------
 
-PHASE 5 — Live streaming [TODO]
-  [ ] DB: live_sessions (+ chat storage or Realtime broadcast channel)
-  [ ] RLS + policies for host vs viewers; viewer_count (Edge Function or RPC)
-  [ ] Signaling: Supabase Realtime channels for SDP/ICE (multi-viewer safe)
-  [ ] simple-peer: host and viewer flows; STUN; document TURN post-MVP
-  [ ] In-stream HUD: LIVE badge, viewer count, category
-  [ ] Live chat tied to stream/session
-  [ ] End stream: is_active false, is_live false on incident, stop pulse
-
-PHASE 6 — Ship [TODO]
-  [ ] PWA: manifest, icons, basic installability
-  [ ] Responsive pass (mobile-first)
-  [ ] Vercel deploy; env vars documented
-  [ ] Smoke test checklist (browse, report, share, live happy path)
-  [ ] Final PLAN.txt / README alignment
+(MVP phases 1–6 complete. Further work is product iteration, not tracked here.)
 
 --------------------------------------------------------------------------------
 6. PRD FEATURE MAPPING (F1–F5)
@@ -131,10 +134,14 @@ PHASE 6 — Ship [TODO]
   .env.example
   README.md
   app/page.tsx
+  app/manifest.ts
   app/incident/[id]/page.tsx
   app/layout.tsx
+  public/icon.svg
   app/globals.css
   components/providers/auth-provider.tsx
+  components/live/live-room.tsx
+  components/incident/incident-page-live.tsx
   components/map/lafda-map.tsx
   components/map/incident-detail-sheet.tsx
   components/map/incident-detail-card.tsx
@@ -142,7 +149,11 @@ PHASE 6 — Ship [TODO]
   components/map/filter-chips.tsx
   components/map/incident-marker.tsx
   hooks/use-incidents-realtime.ts
+  hooks/use-live-session-meta.ts
+  hooks/use-open-live-room.ts
   lib/incidents.ts
+  lib/live-sessions.ts
+  lib/webrtc-config.ts
   lib/get-incident.ts
   lib/relative-time.ts
   lib/site-url.ts
@@ -151,6 +162,7 @@ PHASE 6 — Ship [TODO]
   lib/supabase/client.ts
   lib/supabase/server.ts
   supabase/migrations/20250322120000_incidents.sql
+  supabase/migrations/20250322140000_live_sessions.sql
   .cursor/rules/lafdamap-plan-sync.mdc
 
 --------------------------------------------------------------------------------

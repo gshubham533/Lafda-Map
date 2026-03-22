@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { IncidentDetailCard } from "@/components/map/incident-detail-card";
+import { IncidentPageLive } from "@/components/incident/incident-page-live";
 import { buttonVariants } from "@/components/ui/button";
 import { getIncidentById } from "@/lib/get-incident";
 import { getPublicSiteUrl } from "@/lib/site-url";
@@ -57,7 +57,7 @@ export default async function IncidentPage({ params }: PageProps) {
         >
           ← Map
         </Link>
-        <IncidentDetailCard incident={incident} variant="page" />
+        <IncidentPageLive incident={incident} />
       </div>
     </main>
   );
